@@ -1,54 +1,69 @@
 <?php
-require 'vendor/autoload.php';
-
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-
+require_once 'PHPExcel/Classes/PHPExcel.php'; // Adjust the path as necessary
 include 'db.php';
 
+// Retrieve the parameters from the GET request
 $search = $_GET['search'] ?? '';
 $selectedDate = $_GET['date'] ?? '';
 $selectedTeam = $_GET['team'] ?? '';
 
-$conditions = " WHERE r.content LIKE :search";
-$params = ['search' => '%' . $search . '%'];
+// Set up the conditions for the query
+$conditions = " WHERE r.content LIKE ?";
+$params = ['%' . $search . '%'];
 
 if ($selectedDate) {
-    $conditions .= " AND DATE(r.report_date) = :report_date";
-    $params['report_date'] = $selectedDate;
+    $conditions .= " AND DATE(r.report_date) = ?";
+    $params[] = $selectedDate;
 }
 
 if ($selectedTeam) {
-    $conditions .= " AND r.team_id = :team_id";
-    $params['team_id'] = $selectedTeam;
+    $conditions .= " AND r.team_id = ?";
+    $params[] = $selectedTeam;
 }
 
-$query = "SELECT r.id, r.content, t.team_name, r.report_date FROM reports r JOIN teams t ON r.team_id = t.id $conditions ORDER BY r.report_date DESC";
+$query = "SELECT r.id, a.category_name, r.content, t.team_name, r.report_date, r.team_id FROM WRDB.task_categories a, WRDB.reports r JOIN teams t ON r.team_id = t.id $conditions AND r.category_id = a.id ORDER BY r.report_date DESC";
+
 $stmt = $conn->prepare($query);
 $stmt->execute($params);
 $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$spreadsheet = new Spreadsheet();
-$sheet = $spreadsheet->getActiveSheet();
-$sheet->setCellValue('A1', '팀 이름');
-$sheet->setCellValue('B1', '보고 날짜');
-$sheet->setCellValue('C1', '보고 내용');
+$objPHPExcel = new PHPExcel();
+$objPHPExcel->setActiveSheetIndex(0);
+$sheet = $objPHPExcel->getActiveSheet();
 
-$row = 2;
+// Set headers for the Excel document
+$sheet->setCellValue('A1', '팀 이름');
+$sheet->setCellValue('B1', '업무 카테고리');
+$sheet->setCellValue('C1', '전주 주간보고 내용');
+$sheet->setCellValue('D1', '이번주 주간보고 내용');
+
+// Fill data
+$rowCount = 2;
 foreach ($reports as $report) {
-    $sheet->setCellValue('A' . $row, $report['team_name']);
-    $sheet->setCellValue('B' . $row, $report['report_date']);
-    $sheet->setCellValue('C' . $row, $report['content']);
-    $row++;
+    $sheet->setCellValue('A' . $rowCount, $report['team_name']);
+    $sheet->setCellValue('B' . $rowCount, $report['category_name']);
+    $sheet->setCellValue('C' . $rowCount, strip_tags($report['content'])); // Assuming content from last week
+    $sheet->setCellValue('D' . $rowCount, strip_tags($report['content'])); // Assuming content from this week
+    $rowCount++;
 }
 
-$writer = new Xlsx($spreadsheet);
+$filename = "주간보고_".$report['report_date'].".xlsx";
 
-// Redirect output to a client’s web browser (Xlsx)
-header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-header('Content-Disposition: attachment;filename="Report.xlsx"');
+// Set the headers to download the file
+header('Content-Type: application/vnd.ms-excel');
+header('Content-Disposition: attachment;filename='.$filename);
 header('Cache-Control: max-age=0');
 
-$writer->save('php://output');
+$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+$objWriter->save('php://output');
+
+// Excel 다운로드 직후 사용자를 list_report.php로 리디렉션
+$queryString = http_build_query([
+    'search' => $search,
+    'date' => $selectedDate,
+    'team' => $selectedTeam,
+]);
+
+header("Location: list_report.php?" . $queryString);
 exit;
 ?>

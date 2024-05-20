@@ -87,7 +87,7 @@ $totalPages = ceil($totalReports / $perPage);
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>주간보고 목록 V2</title>
+    <title>주간보고 목록 V3</title>
     <style>
         body { text-align: center; font-family: Arial, sans-serif; }
         table { margin: auto; width: 80%; border-collapse: collapse; }
@@ -100,7 +100,7 @@ $totalPages = ceil($totalReports / $perPage);
     <div class="button-group" align="right">
         <a href="?logout=true"><button type="button">로그아웃</button></a>
     </div>
-    <h1>주간보고 목록 V2</h1> 
+    <h1>주간보고 목록 V3</h1> 
     <form action="" method="get">
         <select name="team" onchange="this.form.submit()">
             <option value="">모든 팀</option>
@@ -119,6 +119,22 @@ $totalPages = ceil($totalReports / $perPage);
         <a href="create_report.php"><button type="button">주간보고 입력하기</button></a>
         &nbsp;&nbsp;&nbsp;<a href="manage_task_categories.php"><button type="button">업무 카테고리 입력하기</button></a>
     </form>
+    </br> 
+    <table>
+        <thead>
+            <tr> 
+                <td align="right">
+                    <!-- Add an Excel download button -->
+                    <form action="download_excel.php" method="get">
+                        <input type="hidden" name="search" value="<?= htmlspecialchars($search) ?>">
+                        <input type="hidden" name="date" value="<?= $selectedDate ?>">
+                        <input type="hidden" name="team" value="<?= $selectedTeam ?>">
+                        <button type="submit">Download Excel</button>
+                    </form>
+                </td>
+            </tr>
+        </thead>
+    </table>
     <br>
     <?php if (empty($reports)): ?>
         <p>데이터가 없습니다.</p>
