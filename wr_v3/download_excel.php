@@ -31,6 +31,10 @@ $objPHPExcel = new PHPExcel();
 $objPHPExcel->setActiveSheetIndex(0);
 $sheet = $objPHPExcel->getActiveSheet();
 
+// Get previous week's report content
+$previousContentQuery = "SELECT content,id FROM reports WHERE team_id = :team_id AND DATE(report_date) = DATE_SUB(:report_date, INTERVAL 7 DAY)";
+$prevContentStmt = $conn->prepare($previousContentQuery);
+
 // Set headers for the Excel document
 $sheet->setCellValue('A1', '팀 이름');
 $sheet->setCellValue('B1', '업무 카테고리');
@@ -42,8 +46,22 @@ $rowCount = 2;
 foreach ($reports as $report) {
     $sheet->setCellValue('A' . $rowCount, $report['team_name']);
     $sheet->setCellValue('B' . $rowCount, $report['category_name']);
-    $sheet->setCellValue('C' . $rowCount, strip_tags($report['content'])); // Assuming content from last week
-    $sheet->setCellValue('D' . $rowCount, strip_tags($report['content'])); // Assuming content from this week
+
+    // Get previous week's report content
+    $prevContentStmt->execute(['team_id' => $report['team_id'], 'report_date' => $report['report_date']]);
+    $prevContent = "-";
+    $prevId = 0;
+    $preRow = $prevContentStmt->fetch(PDO::FETCH_ASSOC);
+    if($prevContentStmt -> rowCount() > 0){
+        $prevContent = $preRow["content"];
+        $prevId = $preRow["id"];
+    }
+
+    $cleanContentLastWeek = htmlspecialchars(strip_tags(str_replace(["<br>", "<br/>", "<br />"], "\n", $prevContent)));
+    $cleanContentThisWeek = htmlspecialchars(strip_tags(str_replace(["<br>", "<br/>", "<br />"], "\n", $report['content'])));
+
+    $sheet->setCellValue('C' . $rowCount, $cleanContentLastWeek); // Assuming content from last week
+    $sheet->setCellValue('D' . $rowCount, $cleanContentThisWeek); // Assuming content from this week
     $rowCount++;
 }
 
